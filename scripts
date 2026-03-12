@@ -1,1 +1,42 @@
+function main(workbook: ExcelScript.Workbook): string {
+  // Output shape: { "SheetName": Array<RowObject> }
+  const result: Record<string, Array<Record<string, string | number | boolean | null>>> = {};
 
+  // Iterate all worksheets
+  workbook.getWorksheets().forEach((ws) => {
+    const used = ws.getUsedRange();
+    if (!used) return;
+
+    // Excel on the web returns a 2D array of primitive cell values
+    const values = used.getValues() as (string | number | boolean | null)[][];
+    if (values.length < 2) return;
+
+    // First row = headers (normalize to plain strings)
+    const headerRow = values[0] as (string | number | boolean | null)[];
+    const headers: string[] = headerRow.map((h) =>
+      String(h ?? "").trim().replace(/\n/g, " ")
+    );
+
+    // Convert subsequent rows to objects
+    const rows: Array<Record<string, string | number | boolean | null>> = [];
+    for (let r = 1; r < values.length; r++) {
+      const row = values[r] as (string | number | boolean | null)[];
+
+      // Skip fully empty rows
+      const isEmpty = row.every((v) => v === null || v === "");
+      if (isEmpty) continue;
+
+      const obj: Record<string, string | number | boolean | null> = {};
+      for (let c = 0; c < headers.length; c++) {
+        const key = headers[c] ?? `Column${c + 1}`;
+        // Keep primitive types; do NOT coerce numbers/booleans to strings
+        obj[key] = (c < row.length ? row[c] : null);
+      }
+      rows.push(obj);
+    }
+
+    result[ws.getName()] = rows;
+  });
+
+  return JSON.stringify(result);
+}
