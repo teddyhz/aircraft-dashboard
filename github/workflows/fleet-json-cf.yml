@@ -1,0 +1,37 @@
+name: Fleet JSON build (Cloudflare Pages)
+
+on:
+  push:
+    paths:
+      - 'source/**/*.xlsx'
+      - 'scripts/convert_excel_to_json.py'
+      - '.github/workflows/fleet-json-cf.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *'
+  repository_dispatch:
+    types: [sharepoint-updated]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas openpyxl
+      - name: Convert Excel -> JSON into ./public/data
+        run: |
+          python scripts/convert_excel_to_json.py source/"Aircraft Data For Dashboard Fleet Structure.xlsx" public/data
+      - name: Upload to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ secrets.CF_PAGES_PROJECT }}
+          directory: public
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
